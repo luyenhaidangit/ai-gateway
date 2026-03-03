@@ -1,23 +1,19 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Index
+from sqlalchemy import Column, Integer, String, Text, DateTime, Float
 from sqlalchemy.sql import func
 from app.database import Base
 
 
-class ChatCache(Base):
-    """ORM model — stores cached AI chat responses."""
+class InferenceResult(Base):
+    """ORM model — stores MLOps text classification inference results."""
 
-    __tablename__ = "chat_cache"
+    __tablename__ = "inference_history"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    prompt = Column(Text, nullable=False)
-    response = Column(Text, nullable=False)
-    model = Column(String(50), nullable=False)
-    prompt_hash = Column(String(64), nullable=False, index=True)
+    text = Column(Text, nullable=False)
+    prediction = Column(String(50), nullable=False)
+    confidence = Column(Float, nullable=False)
+    model_version = Column(String(50), nullable=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
-    __table_args__ = (
-        Index("idx_prompt_hash_model", "prompt_hash", "model"),
-    )
-
     def __repr__(self):
-        return f"<ChatCache(id={self.id}, model='{self.model}', cached_at='{self.created_at}')>"
+        return f"<InferenceResult(id={self.id}, prediction='{self.prediction}', confidence={self.confidence})>"

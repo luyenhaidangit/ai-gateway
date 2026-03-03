@@ -28,7 +28,16 @@ async def get_db():
             await session.close()
 
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 async def init_db():
-    """Create all tables on startup."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    """Create all tables on startup. Fails gracefully if DB is unavailable."""
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables verified/created successfully.")
+    except Exception as e:
+        logger.error(f"Failed to connect to database on startup: {e}")
+        logger.warning("Application will start, but database-dependent features will fail.")

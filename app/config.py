@@ -8,9 +8,9 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "oracle+oracledb://ai_gateway:SecurePass123@db:1521/?service_name=XEPDB1"
 
-    # AI API
-    AI_API_KEY: str = "sk-mock-key"
-    AI_API_BASE_URL: str = "https://api.openai.com/v1"
+    # ML Model Config
+    MODEL_NAME: str = "sentiment-analysis-v1"
+    CONFIDENCE_THRESHOLD: float = 0.5
 
     # CORS
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:8080"

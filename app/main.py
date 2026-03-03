@@ -6,23 +6,28 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.database import init_db
 from app.routers.api import router as api_router, health_router
+from app.services.core import ml_model
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: create DB tables. Shutdown: cleanup."""
+    """Startup: create DB tables and load ML model."""
     await init_db()
+    # Simulate loading model weights into RAM on boot
+    await ml_model.load_model()
     yield
+    # Shutdown logic (e.g., clear CUDA cache) would go here
 
 
 settings = get_settings()
 
 app = FastAPI(
-    title="AI Gateway",
+    title="MLOps Inference Server",
     description=(
-        "Proxy & Cache service for third-party AI APIs. "
-        "Receives prompts, caches responses in Oracle DB, "
-        "and serves cached results for repeated queries."
+        "Production-ready FastAPI service for ML Model Inference. "
+        "Loads a simulated classification model into RAM during startup, "
+        "provides inference endpoints powered by uvicorn workers, "
+        "and logs all predictions to Oracle Database."
     ),
     version="1.0.0",
     lifespan=lifespan,

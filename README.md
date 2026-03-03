@@ -1,99 +1,79 @@
-# 🚀 AI Gateway — Proxy & Cache AI API Service
+# 🚀 MLOps Inference Server
 
-FastAPI service đóng vai trò **proxy & cache** cho các API AI bên thứ ba (OpenAI, Groq). Nhận request từ client, forward đến AI provider, cache kết quả vào **Oracle Database**, hỗ trợ truy vấn lại kết quả đã cache.
+FastAPI service đóng vai trò **Inference Server** giả lập trong hệ thống MLOps. Nhận raw text data, chạy phân loại thông qua một (mock) fine-tuned model (được load vào RAM trong lifespan startup). Kết quả dự đoán cùng với model version được lưu trữ lại trên hệ thống Oracle DB để theo dõi và retraining sau này. Scale dự phòng bằng uvicorn workers.
 
 ## 📋 Features
 
-- **POST /api/chat** — Gửi prompt đến AI, tự động cache response (hash-based)
-- **GET /api/chat/{id}** — Truy vấn kết quả đã cache theo ID
-- **GET /health** — Healthcheck service + database connectivity
-- **Pydantic validation** — Input/output schema rõ ràng, 422 error chi tiết
-- **Swagger UI** — Tự động tại `/docs`
-- **Docker production-ready** — Multi-stage build, non-root user, Oracle healthcheck
+- **POST /api/infer** — Gửi text để phân loại (Positive/Negative/Neutral) và lấy độ tin cậy. Dữ liệu được log tự động vào DB.
+- **GET /api/infer/{id}** — Xem lại kết quả phân loại từ lịch sử (history logging)
+- **GET /health** — Kiểm tra trạng thái Database connection + trạng thái ML model đã được tải vào RAM hay chưa. Trả 503 khi model chưa load xong.
+- **Pydantic validation** — Ràng buộc chiều dài text (1 - 5000 ký tự). Trả 422 chi tiết nếu nhập sai.
+- **Docker production-ready (Scale)** — Mở sẵn `--workers 4`, tự động non-root, Oracle XE healthcheck.
 
 ## 🏗️ Project Structure
 
 ```
-ai-gateway/
+ai-gateway/                   # Tên repo cũ nhưng sử dụng cho MLOps Server
 ├── app/
-│   ├── __init__.py
-│   ├── main.py              # FastAPI app + CORS + routers
-│   ├── config.py             # Pydantic Settings (env vars)
+│   ├── main.py              # FastAPI app + lifespan model loading
+│   ├── config.py             # Env vars, model configs
 │   ├── database.py           # SQLAlchemy async + Oracle
 │   ├── routers/
-│   │   └── api.py            # 3 API endpoints
+│   │   └── api.py            # /api/infer và /health
 │   ├── models/
-│   │   ├── schemas.py        # Pydantic request/response
-│   │   └── database.py       # SQLAlchemy ORM models
+│   │   ├── schemas.py        # Pydantic (InferenceRequest/Response)
+│   │   └── database.py       # SQLAlchemy (InferenceResult table)
 │   └── services/
-│       └── core.py           # Business logic
+│       └── core.py           # MLModelSingleton + DB methods
 ├── docker/
-│   ├── Dockerfile            # Multi-stage build
+│   ├── Dockerfile            # Multi-stage build + workers cmd
 │   └── docker-compose.yml    # API + Oracle XE
-├── AVOIDANCE_TABLE.md        # Proof tránh 8/8 lỗi
-├── requirements.txt
-├── .dockerignore
-├── .env.example
-└── .gitignore
+├── AVOIDANCE_TABLE.md        # Lỗi tránh (multi-stage, non-root...)
+└── .env.example
 ```
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Local & Docker)
 
-### Prerequisites
-- Docker & Docker Compose installed
-
-### Run
-
+### Run without Docker (Local Testing)
+Do project dùng Oracle database nhưng chạy local có tính năng graceful degraded (bỏ qua cache save DB nếu lỗi DB). Giả lập loading model tốn 2s.
 ```bash
-# Clone repo
-git clone https://github.com/<your-username>/ai-gateway.git
-cd ai-gateway
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --workers 4 --host 0.0.0.0 --port 8000
+```
 
-# (Optional) Copy and customize env vars
+### Run using Docker Compose
+```bash
 cp .env.example .env
-
-# Start services
 cd docker
 docker-compose up --build -d
-
-# Check status
-docker-compose ps
 ```
 
-### Test
+## 🧪 Testing the API
 
 ```bash
-# Health check
+# Health check (will show 'model_loaded': true)
 curl http://localhost:8000/health
 
-# Send a prompt
-curl -X POST http://localhost:8000/api/chat \
+# Run an Inference prediction
+curl -X POST http://localhost:8000/api/infer \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "What is Docker?", "model": "gpt-3.5-turbo"}'
+  -d '{"text": "This application works amazingly well"}'
 
-# Get cached result
-curl http://localhost:8000/api/chat/1
+# Get inference history
+curl http://localhost:8000/api/infer/1
 
-# Test validation (422 error)
-curl -X POST http://localhost:8000/api/chat \
+# Test validation (text too long or empty)
+curl -X POST http://localhost:8000/api/infer \
   -H "Content-Type: application/json" \
-  -d '{}'
+  -d '{"text": ""}'
 ```
 
 ### Swagger UI
 
-Open [http://localhost:8000/docs](http://localhost:8000/docs) in your browser.
-
-## ⚙️ Environment Variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `DATABASE_URL` | `oracle+oracledb://...` | Oracle connection string |
-| `ORACLE_USER` | `ai_gateway` | Oracle app user |
-| `ORACLE_PASSWORD` | `SecurePass123` | Oracle password |
-| `AI_API_KEY` | `sk-mock-key` | AI provider API key |
-| `ALLOWED_ORIGINS` | `http://localhost:3000,...` | CORS allowed origins |
+Mở [http://localhost:8000/docs](http://localhost:8000/docs) để test Swagger UI.
 
 ## 🛡️ Best Practices Applied
 
-See [AVOIDANCE_TABLE.md](AVOIDANCE_TABLE.md) for detailed proof of avoiding all 8 common mistakes.
+Xem [AVOIDANCE_TABLE.md](AVOIDANCE_TABLE.md) để thấy chi tiết cách sửa đủ **8 sai lầm phổ biến**.

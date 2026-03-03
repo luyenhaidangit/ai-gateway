@@ -1,83 +1,111 @@
-import hashlib
+import asyncio
 import random
 from datetime import datetime, timezone
+import logging
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.database import ChatCache
+from app.models.database import InferenceResult
+from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
-def hash_prompt(prompt: str, model: str) -> str:
-    """Generate SHA256 hash from prompt + model for cache lookup."""
-    content = f"{prompt.strip().lower()}:{model}"
-    return hashlib.sha256(content.encode()).hexdigest()
+class MLModelSingleton:
+    """Mock ML Model representing a loaded AI model in memory."""
+    
+    _instance = None
+    _is_loaded = False
+    _model_version = ""
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(MLModelSingleton, cls).__new__(cls)
+        return cls._instance
+
+    async def load_model(self):
+        """Simulate loading a model into RAM on startup (takes 2 seconds)."""
+        if not self._is_loaded:
+            logger.info("Initializing ML Model... (simulating 2s load time)")
+            await asyncio.sleep(2)
+            self._model_version = get_settings().MODEL_NAME
+            self._is_loaded = True
+            logger.info(f"Model {self._model_version} loaded successfully into memory.")
+
+    @property
+    def is_loaded(self) -> bool:
+        return self._is_loaded
+        
+    @property
+    def version(self) -> str:
+        return self._model_version
+
+    def predict(self, text: str) -> dict:
+        """
+        Simulate text classification inference.
+        Returns: { 'prediction': 'Positive'|'Negative'|'Neutral', 'confidence': float }
+        """
+        if not self._is_loaded:
+            raise RuntimeError("Model is not loaded!")
+            
+        text_lower = text.lower()
+        
+        # Simple keyword-based mock logic
+        if any(word in text_lower for word in ["good", "great", "excellent", "love", "amazing", "happy"]):
+            pred = "Positive"
+            conf = round(random.uniform(0.75, 0.99), 4)
+        elif any(word in text_lower for word in ["bad", "terrible", "awful", "hate", "worst", "sad"]):
+            pred = "Negative"
+            conf = round(random.uniform(0.75, 0.99), 4)
+        else:
+            pred = "Neutral"
+            conf = round(random.uniform(0.40, 0.70), 4)
+            
+        return {"prediction": pred, "confidence": conf}
 
 
-async def get_cached_response(
-    prompt_hash: str, model: str, db: AsyncSession
-) -> ChatCache | None:
-    """Look up cached response by prompt hash and model."""
-    stmt = select(ChatCache).where(
-        ChatCache.prompt_hash == prompt_hash,
-        ChatCache.model == model,
-    )
-    result = await db.execute(stmt)
-    return result.scalar_one_or_none()
+# Global model instance
+ml_model = MLModelSingleton()
 
 
-async def get_chat_by_id(chat_id: int, db: AsyncSession) -> ChatCache | None:
-    """Retrieve a cached chat entry by its ID."""
-    stmt = select(ChatCache).where(ChatCache.id == chat_id)
-    result = await db.execute(stmt)
-    return result.scalar_one_or_none()
+async def get_inference_by_id(infer_id: int, db: AsyncSession) -> InferenceResult | None:
+    """Retrieve an inference result by its ID."""
+    try:
+        stmt = select(InferenceResult).where(InferenceResult.id == infer_id)
+        result = await db.execute(stmt)
+        return result.scalar_one_or_none()
+    except Exception as e:
+        logger.error(f"Error reading from DB: {e}")
+        return None
 
 
-async def save_to_cache(
-    prompt: str,
-    response: str,
-    model: str,
-    prompt_hash: str,
+async def save_inference_result(
+    text: str,
+    prediction: str,
+    confidence: float,
+    model_version: str,
     db: AsyncSession,
-) -> ChatCache:
-    """Save AI response to database cache."""
-    entry = ChatCache(
-        prompt=prompt,
-        response=response,
-        model=model,
-        prompt_hash=prompt_hash,
+) -> InferenceResult:
+    """Save inference result to database history."""
+    entry = InferenceResult(
+        text=text,
+        prediction=prediction,
+        confidence=confidence,
+        model_version=model_version,
     )
-    db.add(entry)
-    await db.commit()
-    await db.refresh(entry)
+    
+    try:
+        db.add(entry)
+        await db.commit()
+        await db.refresh(entry)
+    except Exception as e:
+        logger.warning(f"Failed to save inference result to DB: {e}")
+        # Gracefully handle DB run without crashing the response
+        entry.id = -1
+        entry.created_at = datetime.now(timezone.utc)
+        
     return entry
-
-
-async def call_ai_api(prompt: str, model: str, max_tokens: int) -> str:
-    """
-    Mock AI API call — simulates a response from an AI provider.
-
-    In production, this would use httpx to call OpenAI/Groq API.
-    For demo purposes, returns a simulated response.
-    """
-    # Simulated AI responses based on prompt content
-    responses = [
-        f"Based on my analysis of your prompt about '{prompt[:50]}...', "
-        f"here is a comprehensive response generated by {model}. "
-        "This is a mock response for demonstration purposes. "
-        "In production, this would call the actual AI API endpoint.",
-
-        f"[{model}] Great question! Regarding '{prompt[:40]}...': "
-        "The answer involves several key concepts that are fundamental "
-        "to understanding this topic. This simulated response demonstrates "
-        "the gateway's proxy and caching capabilities.",
-
-        f"AI Gateway Response ({model}): After processing your query "
-        f"'{prompt[:35]}...', I can provide the following insights. "
-        "Note: This is a mock response. The actual implementation would "
-        "forward requests to the configured AI provider API.",
-    ]
-    return random.choice(responses)
 
 
 async def check_database_health(db: AsyncSession) -> bool:

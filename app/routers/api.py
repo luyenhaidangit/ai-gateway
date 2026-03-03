@@ -4,98 +4,86 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models.schemas import ChatRequest, ChatResponse, HealthResponse, ErrorDetail
+from app.models.schemas import InferenceRequest, InferenceResponse, HealthResponse, ErrorDetail
 from app.services.core import (
-    hash_prompt,
-    get_cached_response,
-    get_chat_by_id,
-    save_to_cache,
-    call_ai_api,
+    ml_model,
+    get_inference_by_id,
+    save_inference_result,
     check_database_health,
 )
 
-router = APIRouter(prefix="/api", tags=["AI Gateway"])
+router = APIRouter(prefix="/api", tags=["MLOps Inference Server"])
 
 
 @router.post(
-    "/chat",
-    response_model=ChatResponse,
+    "/infer",
+    response_model=InferenceResponse,
     status_code=status.HTTP_200_OK,
-    summary="Send a prompt to AI (with caching)",
+    summary="Submit text for classification inference",
     description=(
-        "Receives a prompt, checks the cache for an existing response. "
-        "If cached, returns immediately. Otherwise, calls the AI API, "
-        "stores the result, and returns it."
+        "Send raw text to the currently loaded ML model. "
+        "The model predicts the sentiment (Positive/Negative/Neutral) "
+        "and returns a confidence score. Results are logged to the database."
     ),
     responses={
         422: {"model": ErrorDetail, "description": "Validation error"},
+        503: {"model": ErrorDetail, "description": "Model not loaded yet"},
     },
 )
-async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
-    # Check cache first
-    prompt_h = hash_prompt(request.prompt, request.model)
-    cached = await get_cached_response(prompt_h, request.model, db)
-
-    if cached:
-        return ChatResponse(
-            id=cached.id,
-            prompt=cached.prompt,
-            response=cached.response,
-            model=cached.model,
-            cached=True,
-            created_at=cached.created_at,
+async def infer(request: InferenceRequest, db: AsyncSession = Depends(get_db)):
+    if not ml_model.is_loaded:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="ML Model is currently initializing and not ready to accept requests.",
         )
+        
+    # Run Inference (sync, blocking operation simulated)
+    # In a real MLOps server, this would run in a separate ThreadPool if CPU intensive
+    result = ml_model.predict(request.text)
 
-    # Cache miss — call AI API
-    ai_response = await call_ai_api(
-        prompt=request.prompt,
-        model=request.model,
-        max_tokens=request.max_tokens,
-    )
-
-    # Save to DB
-    entry = await save_to_cache(
-        prompt=request.prompt,
-        response=ai_response,
-        model=request.model,
-        prompt_hash=prompt_h,
+    # Save to DB history
+    entry = await save_inference_result(
+        text=request.text,
+        prediction=result["prediction"],
+        confidence=result["confidence"],
+        model_version=ml_model.version,
         db=db,
     )
 
-    return ChatResponse(
+    return InferenceResponse(
         id=entry.id,
-        prompt=entry.prompt,
-        response=entry.response,
-        model=entry.model,
-        cached=False,
+        text=entry.text,
+        prediction=entry.prediction,
+        confidence=entry.confidence,
+        model_version=entry.model_version,
         created_at=entry.created_at,
     )
 
 
 @router.get(
-    "/chat/{chat_id}",
-    response_model=ChatResponse,
-    summary="Get cached chat result by ID",
-    description="Retrieve a previously cached AI chat response by its ID.",
+    "/infer/{infer_id}",
+    response_model=InferenceResponse,
+    summary="Get past inference result by ID",
+    description="Retrieve a previously executed inference classification from the history database.",
     responses={
-        404: {"model": ErrorDetail, "description": "Chat not found"},
+        404: {"model": ErrorDetail, "description": "Result not found"},
     },
 )
-async def get_chat(chat_id: int, db: AsyncSession = Depends(get_db)):
-    entry = await get_chat_by_id(chat_id, db)
+async def get_inference(infer_id: int, db: AsyncSession = Depends(get_db)):
+    entry = await get_inference_by_id(infer_id, db)
 
     if not entry:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Chat with id {chat_id} not found",
+            detail=f"Inference record with id {infer_id} not found",
         )
 
-    return ChatResponse(
+    return InferenceResponse(
         id=entry.id,
-        prompt=entry.prompt,
-        response=entry.response,
-        model=entry.model,
-        cached=True,
+        text=entry.text,
+        prediction=entry.prediction,
+        confidence=entry.confidence,
+        model_version=entry.model_version,
         created_at=entry.created_at,
     )
 
@@ -108,14 +96,18 @@ health_router = APIRouter(tags=["Health"])
 @health_router.get(
     "/health",
     response_model=HealthResponse,
-    summary="Service health check",
-    description="Returns service status and database connectivity.",
+    summary="Service and Model health check",
+    description="Check database connectivity and whether the ML model is fully loaded in RAM.",
 )
 async def health_check(db: AsyncSession = Depends(get_db)):
     db_healthy = await check_database_health(db)
+    model_loaded = ml_model.is_loaded
+    
+    sys_status = "healthy" if (db_healthy and model_loaded) else "initializing" if not model_loaded else "degraded"
 
     return HealthResponse(
-        status="healthy" if db_healthy else "unhealthy",
+        status=sys_status,
         database="connected" if db_healthy else "disconnected",
+        model_loaded=model_loaded,
         timestamp=datetime.now(timezone.utc),
     )

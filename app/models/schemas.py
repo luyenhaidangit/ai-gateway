@@ -4,39 +4,28 @@ from datetime import datetime
 
 # ─── Request Models ───────────────────────────────────────────
 
-class ChatRequest(BaseModel):
-    """Request body for POST /api/chat."""
+class InferenceRequest(BaseModel):
+    """Request body for POST /api/infer."""
 
-    prompt: str = Field(
+    text: str = Field(
         ...,
         min_length=1,
-        max_length=2000,
-        description="The prompt to send to the AI model",
-        examples=["Explain what is Docker in 2 sentences"],
-    )
-    model: str = Field(
-        default="gpt-3.5-turbo",
-        description="AI model to use",
-        examples=["gpt-3.5-turbo", "gpt-4"],
-    )
-    max_tokens: int = Field(
-        default=500,
-        ge=1,
-        le=4000,
-        description="Maximum tokens in the response",
+        max_length=5000,
+        description="The text to classify",
+        examples=["This new feature is absolutely amazing, I love it!"],
     )
 
 
 # ─── Response Models ──────────────────────────────────────────
 
-class ChatResponse(BaseModel):
-    """Response body for chat endpoints."""
+class InferenceResponse(BaseModel):
+    """Response body for inference endpoints."""
 
     id: int
-    prompt: str
-    response: str
-    model: str
-    cached: bool = Field(description="Whether this response was served from cache")
+    text: str = Field(description="The original text input")
+    prediction: str = Field(description="Classification result (Positive/Negative/Neutral)")
+    confidence: float = Field(description="Model confidence score (0.0 to 1.0)")
+    model_version: str = Field(description="The model version used for inference")
     created_at: datetime
 
     class Config:
@@ -46,8 +35,9 @@ class ChatResponse(BaseModel):
 class HealthResponse(BaseModel):
     """Response body for GET /health."""
 
-    status: str = Field(examples=["healthy"])
+    status: str = Field(examples=["healthy", "initializing"])
     database: str = Field(examples=["connected"])
+    model_loaded: bool = Field(description="Whether the ML model is fully loaded in RAM")
     timestamp: datetime
 
 
