@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Float
+from sqlalchemy import Column, Integer, String, Text, DateTime, Float, Identity
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -6,9 +6,9 @@ from app.database import Base
 class InferenceResult(Base):
     """ORM model — stores MLOps text classification inference results."""
 
-    __tablename__ = "inference_history"
+    __tablename__ = "mlops_inference_history"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Integer, Identity(start=1), primary_key=True, autoincrement=True)
     text = Column(Text, nullable=False)
     prediction = Column(String(50), nullable=False)
     confidence = Column(Float, nullable=False)
