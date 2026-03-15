@@ -77,3 +77,5 @@ Mở [http://localhost:8000/docs](http://localhost:8000/docs) để test Swagger
 ## 🛡️ Best Practices Applied
 
 Xem [AVOIDANCE_TABLE.md](AVOIDANCE_TABLE.md) để thấy chi tiết cách sửa đủ **8 sai lầm phổ biến**.
+
+# pip install fastapi uvicorn
