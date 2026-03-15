@@ -1,23 +1,4 @@
 services:
-  # ─── Oracle Database ─────────────────────────────────────
-  db:
-    image: gvenzl/oracle-xe:21-slim
-    container_name: mlops-db
-    environment:
-      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-SecurePass123}
-      APP_USER: ${ORACLE_USER:-mlops_admin}
-      APP_USER_PASSWORD: ${ORACLE_PASSWORD:-SecurePass123}
-    ports:
-      - "1521:1521"
-    volumes:
-      - oracle-data:/opt/oracle/oradata
-    healthcheck:
-      test: ["CMD", "healthcheck.sh"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-    restart: unless-stopped
 
   # ─── MLOps FastAPI Application ───────────────────────────
   api:
@@ -37,10 +18,5 @@ services:
     volumes:
       # Mount secrets directory (if it exists locally) to support Oracle Wallet
       - ../secrets:/app/secrets:ro
-    depends_on:
-      db:
-        condition: service_healthy
     restart: unless-stopped
 
-volumes:
-  oracle-data:
