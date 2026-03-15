@@ -1,7 +1,8 @@
 # app/core/config.py
 
-from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -15,22 +16,28 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # =========================
-    # DATABASE
+    # DATABASE (Oracle)
     # =========================
-    DB_HOST: str = "localhost"
-    DB_PORT: int = 1521
-    DB_USER: str = "system"
-    DB_PASSWORD: str = "oracle"
-    DB_NAME: str = "ORCLCDB"
+    DATABASE_URL: str = "oracle+oracledb://ai_gateway:SecurePass123@db:1521/?service_name=XEPDB1"
+    ORACLE_WALLET_DIR: str | None = None
+    ORACLE_WALLET_PASSWORD: str | None = None
 
-    # Oracle connection string
-    DATABASE_URL: str | None = None
+    # =========================
+    # ML MODEL
+    # =========================
+    MODEL_NAME: str = "sentiment-analysis-v1"
+    CONFIDENCE_THRESHOLD: float = 0.5
 
     # =========================
     # SECURITY
     # =========================
     SECRET_KEY: str = "CHANGE_ME"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+
+    # =========================
+    # CORS
+    # =========================
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:8080"
 
     # =========================
     # LOGGING
@@ -43,13 +50,18 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
 
+    @property
+    def cors_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
+
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"
 
 
-@lru_cache()
-def get_settings():
+@lru_cache
+def get_settings() -> Settings:
     return Settings()
 
 
