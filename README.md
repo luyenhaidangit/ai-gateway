@@ -1,81 +1,196 @@
-# 🚀 MLOps Inference Server
+﻿# AI Gateway
 
-FastAPI service đóng vai trò **Inference Server** giả lập trong hệ thống MLOps. Nhận raw text data, chạy phân loại thông qua một (mock) fine-tuned model (được load vào RAM trong lifespan startup). Kết quả dự đoán cùng với model version được lưu trữ lại trên hệ thống Oracle DB để theo dõi và retraining sau này. Scale dự phòng bằng uvicorn workers.
+`AI Gateway` là một service FastAPI cung cấp API suy luận sentiment cho dữ liệu text.
+Ứng dụng nạp model giả lập khi khởi động, hỗ trợ kiểm tra trạng thái hệ thống và có thể lưu lịch sử suy luận vào Oracle Database.
 
-## 📋 Features
+## Mục tiêu repo
 
-- **POST /api/infer** — Gửi text để phân loại (Positive/Negative/Neutral) và lấy độ tin cậy. Dữ liệu được log tự động vào DB.
-- **GET /api/infer/{id}** — Xem lại kết quả phân loại từ lịch sử (history logging)
-- **GET /health** — Kiểm tra trạng thái Database connection + trạng thái ML model đã được tải vào RAM hay chưa. Trả 503 khi model chưa load xong.
-- **Pydantic validation** — Ràng buộc chiều dài text (1 - 5000 ký tự). Trả 422 chi tiết nếu nhập sai.
-- **Docker production-ready (Scale)** — Mở sẵn `--workers 4`, tự động non-root, Oracle XE healthcheck.
+Repo này dùng để triển khai một API service đơn giản theo hướng production-ready ở mức cơ bản:
 
-## 🏗️ Project Structure
+- khởi động ứng dụng qua FastAPI lifespan
+- kết nối Oracle Database bằng SQLAlchemy async
+- cung cấp endpoint suy luận và tra cứu lịch sử
+- mở tài liệu Swagger để test nhanh
+- đóng gói chạy bằng Docker
 
+## Công nghệ sử dụng
+
+- Python `3.11+`
+- FastAPI
+- Uvicorn
+- SQLAlchemy `2.x`
+- OracleDB driver (`oracledb`)
+- Pydantic Settings
+- Structlog
+- Docker
+
+## Cấu trúc thư mục
+
+```text
+flex-ai-gateway/
+|-- app/
+|   |-- main.py                # Entry point FastAPI
+|   |-- config.py              # Đọc cấu hình từ .env
+|   |-- database.py            # Engine, session, init_db, get_db
+|   |-- routers/
+|   |   `-- api.py             # API routes và health check
+|   |-- services/
+|   |   |-- core.py            # Model giả lập và logic inference
+|   |   `-- inference_service.py
+|   |-- models/
+|   |   |-- database.py        # SQLAlchemy models
+|   |   `-- schemas.py         # Request/response schemas
+|   |-- core/
+|   |   |-- config.py
+|   |   |-- dependencies.py
+|   |   |-- exceptions.py
+|   |   |-- logging.py
+|   |   `-- security.py
+|   |-- db/
+|   |   |-- base.py
+|   |   `-- session.py
+|   |-- repositories/
+|   |   `-- inference_repository.py
+|   `-- schemas/
+|       `-- inference_schema.py
+|-- secrets/
+|   `-- oracle-wallet/
+|-- .env.example
+|-- Dockerfile
+|-- pyproject.toml
+|-- README.md
 ```
-ai-gateway/                   # Tên repo cũ nhưng sử dụng cho MLOps Server
-├── app/
-│   ├── main.py              # FastAPI app + lifespan model loading
-│   ├── config.py             # Env vars, model configs
-│   ├── database.py           # SQLAlchemy async + Oracle
-│   ├── routers/
-│   │   └── api.py            # /api/infer và /health
-│   ├── models/
-│   │   ├── schemas.py        # Pydantic (InferenceRequest/Response)
-│   │   └── database.py       # SQLAlchemy (InferenceResult table)
-│   └── services/
-│       └── core.py           # MLModelSingleton + DB methods
-├── docker/
-│   ├── Dockerfile            # Multi-stage build + workers cmd
-│   └── docker-compose.yml    # API + Oracle XE
-├── AVOIDANCE_TABLE.md        # Lỗi tránh (multi-stage, non-root...)
-└── .env.example
+
+## Các endpoint chính
+
+- `POST /api/infer`: gửi text để suy luận sentiment
+- `GET /api/infer/{infer_id}`: lấy lại kết quả suy luận theo ID
+- `GET /health`: kiểm tra trạng thái model và database
+- `GET /docs`: Swagger UI
+
+## Yêu cầu môi trường
+
+Trước khi chạy, cần có:
+
+- Python `3.11` trở lên
+- `pip` mới
+- Oracle Database nếu muốn lưu lịch sử xuống DB
+- Oracle Wallet nếu môi trường của bạn yêu cầu kết nối wallet
+
+Lưu ý:
+
+- Service vẫn có thể khởi động nếu database chưa sẵn sàng
+- Khi database lỗi, một số chức năng lưu lịch sử sẽ degrade thay vì làm sập toàn bộ app
+
+## Cấu hình môi trường
+
+Project đọc biến môi trường từ file `.env`.
+
+Tạo file `.env` từ mẫu:
+
+```powershell
+Copy-Item .env.example .env
 ```
 
-## 🚀 Quick Start (Local & Docker)
+Các biến cấu hình quan trọng:
 
-### Run without Docker (Local Testing)
-Do project dùng Oracle database nhưng chạy local có tính năng graceful degraded (bỏ qua cache save DB nếu lỗi DB). Giả lập loading model tốn 2s.
-```bash
+- `DATABASE_URL`: chuỗi kết nối Oracle
+- `ORACLE_WALLET_DIR`: đường dẫn tới thư mục wallet
+- `ORACLE_WALLET_PASSWORD`: mật khẩu wallet nếu có
+- `MODEL_NAME`: tên model đang dùng
+- `CONFIDENCE_THRESHOLD`: ngưỡng cấu hình cho model
+- `ALLOWED_ORIGINS`: danh sách origin CORS, phân tách bằng dấu phẩy
+
+Khuyến nghị:
+
+- không dùng nguyên secret trong `.env.example` cho môi trường thật
+- thay toàn bộ thông tin user/password thật bằng giá trị riêng của môi trường của bạn
+
+## Cài đặt local
+
+### 1. Tạo virtual environment
+
+```powershell
 python -m venv .venv
-.\.venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --workers 4 --host 0.0.0.0 --port 8000
 ```
 
-### Run using Docker Compose
-```bash
-cp .env.example .env
-cd docker
-docker-compose up --build -d
+### 2. Kích hoạt virtual environment
+
+```powershell
+.\.venv\Scripts\Activate.ps1
 ```
 
-## 🧪 Testing the API
+### 3. Cài đặt dependencies
 
-```bash
-# Health check (will show 'model_loaded': true)
+```powershell
+pip install --upgrade pip
+pip install -e .
+```
+
+## Chạy ứng dụng local
+
+```powershell
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Sau khi chạy thành công:
+
+- API base URL: `http://localhost:8000`
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+- Health check: `http://localhost:8000/health`
+
+## Chạy bằng Docker
+
+### Build image
+
+```powershell
+docker build -t ai-gateway .
+```
+
+### Run container
+
+```powershell
+docker run --rm -p 8000:8000 --env-file .env ai-gateway
+```
+
+## Test nhanh API
+
+### Health check
+
+```powershell
 curl http://localhost:8000/health
-
-# Run an Inference prediction
-curl -X POST http://localhost:8000/api/infer \
-  -H "Content-Type: application/json" \
-  -d '{"text": "This application works amazingly well"}'
-
-# Get inference history
-curl http://localhost:8000/api/infer/1
-
-# Test validation (text too long or empty)
-curl -X POST http://localhost:8000/api/infer \
-  -H "Content-Type: application/json" \
-  -d '{"text": ""}'
 ```
 
-### Swagger UI
+### Gọi suy luận
 
-Mở [http://localhost:8000/docs](http://localhost:8000/docs) để test Swagger UI.
+```powershell
+curl -X POST http://localhost:8000/api/infer `
+  -H "Content-Type: application/json" `
+  -d '{"text":"This application works amazingly well"}'
+```
 
-## 🛡️ Best Practices Applied
+### Lấy lịch sử theo ID
 
-Xem [AVOIDANCE_TABLE.md](AVOIDANCE_TABLE.md) để thấy chi tiết cách sửa đủ **8 sai lầm phổ biến**.
+```powershell
+curl http://localhost:8000/api/infer/1
+```
 
-# pip install fastapi uvicorn
+## Luồng khởi động ứng dụng
+
+Entry point của service là [`app/main.py`](C:\Workspace\Personal\flex-ai-gateway\app\main.py).
+
+Khi service khởi động:
+
+1. FastAPI tạo app instance
+2. `lifespan()` chạy `init_db()` để kiểm tra hoặc tạo bảng
+3. `lifespan()` chạy `ml_model.load_model()` để nạp model giả lập
+4. middleware CORS được đăng ký
+5. routers API và health được mount
+
+## Ghi chú phát triển
+
+- Entry point runtime: `app.main:app`
+- Package management hiện dùng `pyproject.toml`
+- Dockerfile hiện chạy service bằng Uvicorn trên cổng `8000`
+- Nếu muốn chuẩn hóa hơn nữa, có thể tiếp tục gom cấu hình, DB session và logging về các module `app/core` và `app/db`
