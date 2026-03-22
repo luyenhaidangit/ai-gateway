@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import Settings
 
-
 def register_middleware(app: FastAPI, settings: Settings) -> None:
     app.add_middleware(
         CORSMiddleware,
@@ -12,3 +11,4 @@ def register_middleware(app: FastAPI, settings: Settings) -> None:
         allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
+    
