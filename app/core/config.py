@@ -1,4 +1,4 @@
-# app/core/config.py
+﻿# app/core/config.py
 
 from functools import lru_cache
 
@@ -9,7 +9,9 @@ class Settings(BaseSettings):
     # =========================
     # APP
     # =========================
-    APP_NAME: str = "AI Gateway"
+    APP_TITLE: str = "Flex AI Gateway"
+    APP_DESCRIPTION: str = "Flex AI Gateway Project"
+    APP_VERSION: str = "1.0.0"
     APP_ENV: str = "development"
     APP_HOST: str = "0.0.0.0"
     APP_PORT: int = 8000
