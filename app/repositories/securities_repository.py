@@ -8,7 +8,7 @@ from app.models.securities_info import SecuritiesInfo
 logger = logging.getLogger(__name__)
 
 
-class SecuritiesInfoRepository:
+class SecuritiesRepository:
     """Data access layer for SECURITIES_INFO records."""
 
     def __init__(self, db: AsyncSession):

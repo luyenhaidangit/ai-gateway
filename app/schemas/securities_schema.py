@@ -1,7 +1,7 @@
 ﻿from pydantic import BaseModel, Field
 
 
-class StockAdviceResponse(BaseModel):
+class SecuritiesAdviceResponse(BaseModel):
     """Response body for GET /stock/advice/{symbol}."""
 
     symbol: str = Field(description="Stock symbol")

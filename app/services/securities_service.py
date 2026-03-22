@@ -1,16 +1,16 @@
 ﻿from decimal import Decimal
 
-from app.repositories.securities_info_repository import SecuritiesInfoRepository
-from app.schemas.stock_advice_schema import StockAdviceResponse
+from app.repositories.securities_repository import SecuritiesRepository
+from app.schemas.securities_schema import SecuritiesAdviceResponse
 
 
-class StockAdviceService:
-    """Business logic for stock investment advice."""
+class SecuritiesService:
+    """Business logic for securities investment advice."""
 
-    def __init__(self, repo: SecuritiesInfoRepository):
+    def __init__(self, repo: SecuritiesRepository):
         self.repo = repo
 
-    async def get_advice(self, symbol: str) -> StockAdviceResponse | None:
+    async def get_advice(self, symbol: str) -> SecuritiesAdviceResponse | None:
         record = await self.repo.get_latest_by_symbol(symbol)
         if record is None:
             return None
@@ -19,7 +19,7 @@ class StockAdviceService:
         recommendation = self._get_recommendation(change_percent)
         confidence = self._get_confidence(change_percent, recommendation)
 
-        return StockAdviceResponse(
+        return SecuritiesAdviceResponse(
             symbol=record.symbol,
             recommendation=recommendation,
             confidence=confidence,
