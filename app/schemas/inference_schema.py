@@ -1,11 +1,7 @@
-# app/schemas/inference_schema.py
-
-from datetime import datetime
+﻿from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-
-# ─── Request Models ───────────────────────────────────────────
 
 class InferenceRequest(BaseModel):
     """Request body for POST /api/infer."""
@@ -19,8 +15,6 @@ class InferenceRequest(BaseModel):
     )
 
 
-# ─── Response Models ──────────────────────────────────────────
-
 class InferenceResponse(BaseModel):
     """Response body for inference endpoints."""
 
@@ -33,15 +27,6 @@ class InferenceResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class HealthResponse(BaseModel):
-    """Response body for GET /health."""
-
-    status: str = Field(examples=["healthy", "initializing"])
-    database: str = Field(examples=["connected"])
-    model_loaded: bool = Field(description="Whether the ML model is fully loaded in RAM")
-    timestamp: datetime
 
 
 class ErrorDetail(BaseModel):

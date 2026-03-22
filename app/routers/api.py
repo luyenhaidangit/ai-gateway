@@ -2,7 +2,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models.schemas import ErrorDetail, InferenceRequest, InferenceResponse
+from app.schemas import ErrorDetail, InferenceRequest, InferenceResponse
 from app.services.core import get_inference_by_id, ml_model, save_inference_result
 
 router = APIRouter(prefix="/api", tags=["Inference"])
