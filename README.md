@@ -1,11 +1,12 @@
 ﻿# Flex AI Gateway
 
-`Flex AI Gateway` la FastAPI service cung cap API tra cuu suc khoe he thong va goi y dau tu co phieu dua tren du lieu bang `SECURITIES_INFO` trong Oracle Database.
+`Flex AI Gateway` la FastAPI service cung cap API tra cuu suc khoe he thong va goi y dau tu cho securities dua tren du lieu bang `SECURITIES_INFO` trong Oracle Database.
 
 ## Chuc nang hien tai
 
 - `GET /health`: kiem tra ket noi database
-- `GET /stock/advice/{symbol}`: lay goi y dau tu cho ma co phieu, vi du `AAPL`
+- `GET /securities/advice/{symbol}`: lay goi y dau tu cho ma chung khoan, vi du `AAPL`
+- `POST /securities/price-change`: them thong tin bien dong gia moi
 - Swagger UI tai `http://localhost:8000/docs`
 
 ## Cong nghe su dung
@@ -87,7 +88,7 @@ Sau khi chay:
 
 - Swagger UI: `http://localhost:8000/docs`
 - Health check: `http://localhost:8000/health`
-- Stock advice: `http://localhost:8000/stock/advice/AAPL`
+- Securities advice: `http://localhost:8000/securities/advice/AAPL`
 
 ## Chay bang Docker
 
@@ -104,10 +105,10 @@ docker run --rm -p 8000:8000 --env-file .env ai-gateway
 curl http://localhost:8000/health
 ```
 
-### Stock advice
+### Securities advice
 
 ```powershell
-curl http://localhost:8000/stock/advice/AAPL
+curl http://localhost:8000/securities/advice/AAPL
 ```
 
 Response mau:
@@ -118,6 +119,14 @@ Response mau:
   "recommendation": "BUY",
   "confidence": 0.78
 }
+```
+
+### Them bien dong gia
+
+```powershell
+curl -X POST http://localhost:8000/securities/price-change `
+  -H "Content-Type: application/json" `
+  -d '{"symbol":"AAPL","trade_time":"2026-03-23T09:45:00","price":186.2,"volume":2500000,"change_percent":0.49}'
 ```
 
 ## Ghi chu

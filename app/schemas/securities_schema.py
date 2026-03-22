@@ -4,17 +4,17 @@ from pydantic import BaseModel, Field
 
 
 class SecuritiesAdviceResponse(BaseModel):
-    """Response body for GET /stock/advice/{symbol}."""
+    """Response body for GET /securities/advice/{symbol}."""
 
-    symbol: str = Field(description="Stock symbol")
+    symbol: str = Field(description="Securities symbol")
     recommendation: str = Field(description="Investment recommendation such as BUY, HOLD, or SELL")
     confidence: float = Field(description="Recommendation confidence score from 0.0 to 1.0")
 
 
 class SecuritiesPriceChangeRequest(BaseModel):
-    """Request body for POST /stock/price-change."""
+    """Request body for POST /securities/price-change."""
 
-    symbol: str = Field(min_length=1, max_length=20, description="Stock symbol")
+    symbol: str = Field(min_length=1, max_length=20, description="Securities symbol")
     trade_time: datetime = Field(description="Trade timestamp")
     price: float = Field(gt=0, description="Latest traded price")
     volume: int = Field(ge=0, description="Traded volume")

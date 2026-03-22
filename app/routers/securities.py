@@ -11,16 +11,16 @@ from app.schemas import (
 )
 from app.services.securities_service import SecuritiesService
 
-router = APIRouter(prefix="/stock", tags=["Securities"])
+router = APIRouter(prefix="/securities", tags=["Securities"])
 
 
 @router.post(
     "/price-change",
     response_model=SecuritiesInfoResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create stock price change information",
+    summary="Create securities price change information",
 )
-async def create_stock_price_change(
+async def create_securities_price_change(
     request: SecuritiesPriceChangeRequest,
     db: AsyncSession = Depends(get_db),
 ):
@@ -31,17 +31,17 @@ async def create_stock_price_change(
 @router.get(
     "/advice/{symbol}",
     response_model=SecuritiesAdviceResponse,
-    summary="Get investment advice for a stock symbol",
-    responses={404: {"model": ErrorDetail, "description": "Stock symbol not found"}},
+    summary="Get investment advice for a securities symbol",
+    responses={404: {"model": ErrorDetail, "description": "Securities symbol not found"}},
 )
-async def get_stock_advice(symbol: str, db: AsyncSession = Depends(get_db)):
+async def get_securities_advice(symbol: str, db: AsyncSession = Depends(get_db)):
     service = SecuritiesService(SecuritiesRepository(db))
     advice = await service.get_advice(symbol)
 
     if advice is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Stock symbol {symbol.upper()} not found",
+            detail=f"Securities symbol {symbol.upper()} not found",
         )
 
     return advice
