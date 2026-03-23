@@ -1,4 +1,4 @@
-﻿# app/core/config.py
+# app/core/config.py
 
 from functools import lru_cache
 
@@ -20,6 +20,15 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "oracle+oracledb://ai_gateway:SecurePass123@db:1521/?service_name=XEPDB1"
     ORACLE_WALLET_DIR: str | None = None
     ORACLE_WALLET_PASSWORD: str | None = None
+
+    # =========================
+    # LLM / vLLM
+    # =========================
+    VLLM_BASE_URL: str = "http://vllm:8000"
+    VLLM_MODEL_NAME: str = "Qwen/Qwen2.5-0.5B-Instruct"
+    VLLM_TIMEOUT_SECONDS: float = 120.0
+    VLLM_MAX_TOKENS: int = 256
+    VLLM_TEMPERATURE: float = 0.2
 
     # =========================
     # ML MODEL
