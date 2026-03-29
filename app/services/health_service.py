@@ -1,11 +1,25 @@
-﻿from sqlalchemy import select
+import httpx
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import Settings
 
 
 async def check_database_health(db: AsyncSession) -> bool:
-    """Return True when the database connection is alive."""
     try:
-        await db.execute(select(1))
+        await db.execute(text("SELECT 1 FROM DUAL"))
         return True
     except Exception:
+        return False
+
+
+async def check_llm_health(settings: Settings) -> bool:
+    base_url = settings.OLLAMA_BASE_URL.rstrip("/")
+
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
+            response = await client.get(f"{base_url}/api/tags")
+            response.raise_for_status()
+        return True
+    except httpx.HTTPError:
         return False
