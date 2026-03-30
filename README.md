@@ -112,7 +112,7 @@ QDRANT_URL=http://localhost:6333
 ```
 
 ```powershell
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Sau khi chay:
@@ -212,3 +212,24 @@ curl -X POST http://localhost:8000/securities/price-change `
 - RAG hien ho tro file `.md` va `.txt`
 - API goi y dau tu hien dung heuristic don gian dua tren `CHANGE_PERCENT` cua ban ghi moi nhat theo `symbol`
 - ORM model map bang Oracle nam o `app/models/securities_info.py`
+
+## Xu ly loi moi truong local
+
+Neu gap loi kieu `ModuleNotFoundError: No module named 'qdrant_client'` khi chay `uvicorn`, thuong la ban dang dung Python global khac voi `.venv` cua project.
+
+Kiem tra va cai lai bang:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e .[dev]
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Neu `.venv` da huong toi mot Python base khong con truy cap duoc, xoa va tao lai:
+
+```powershell
+Remove-Item -Recurse -Force .venv
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install --upgrade pip
+pip install -e .[dev]
+```
