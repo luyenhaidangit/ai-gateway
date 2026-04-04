@@ -4,6 +4,7 @@
 
 ## Chuc nang hien tai
 
+- `GET /`: tra ve thong tin service co ban va link nhanh den docs/health
 - `GET /health`: kiem tra ket noi database, Ollama, va Qdrant
 - `GET /rag/health`: kiem tra rieng tinh trang RAG stack
 - `POST /rag/index`: nap tai lieu tu `docs/knowledge-base` vao Qdrant
@@ -117,6 +118,7 @@ QDRANT_URL=http://localhost:6333
 
 Sau khi chay:
 
+- Service info: `http://localhost:8000/`
 - Swagger UI: `http://localhost:8000/docs`
 - Health check: `http://localhost:8000/health`
 - RAG health: `http://localhost:8000/rag/health`
@@ -152,6 +154,12 @@ docker run --rm -p 8000:8000 --env-file .env ai-gateway
 ```
 
 ## Test nhanh API
+
+### Service info
+
+```powershell
+curl http://localhost:8000/
+```
 
 ### Health check
 

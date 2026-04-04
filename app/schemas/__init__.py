@@ -1,5 +1,6 @@
 from app.schemas.common_schema import ErrorDetail
 from app.schemas.health_schema import HealthResponse
+from app.schemas.info_schema import ServiceInfoResponse
 from app.schemas.llm_schema import ChatMessage
 from app.schemas.llm_schema import LlmChatRequest
 from app.schemas.llm_schema import LlmChatResponse
@@ -25,6 +26,7 @@ __all__ = [
     "RagQueryRequest",
     "RagQueryResponse",
     "RagSourceChunk",
+    "ServiceInfoResponse",
     "SecuritiesAdviceResponse",
     "SecuritiesInfoResponse",
     "SecuritiesPriceChangeRequest",
