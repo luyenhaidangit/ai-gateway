@@ -45,6 +45,7 @@ class RagService:
         self.settings = settings
         self.base_url = self.settings.OLLAMA_BASE_URL.rstrip("/")
         self.timeout = httpx.Timeout(self.settings.OLLAMA_TIMEOUT_SECONDS)
+        self.verify = self.settings.ollama_http_verify
         self.qdrant_client = AsyncQdrantClient(url=self.settings.QDRANT_URL, timeout=30.0)
 
     async def get_health(self) -> RagHealthResponse:
@@ -288,7 +289,7 @@ class RagService:
         vectors: list[list[float]] = []
 
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with httpx.AsyncClient(timeout=self.timeout, verify=self.verify) as client:
                 for text in texts:
                     response = await client.post(
                         f"{self.base_url}/api/embeddings",
@@ -354,7 +355,7 @@ class RagService:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with httpx.AsyncClient(timeout=self.timeout, verify=self.verify) as client:
                 response = await client.post(f"{self.base_url}/api/chat", json=payload)
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
@@ -378,7 +379,7 @@ class RagService:
 
     async def _check_ollama_health(self) -> bool:
         try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(10.0), verify=self.verify) as client:
                 response = await client.get(f"{self.base_url}/api/tags")
                 response.raise_for_status()
             return True

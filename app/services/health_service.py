@@ -16,9 +16,10 @@ async def check_database_health(db: AsyncSession) -> bool:
 
 async def check_llm_health(settings: Settings) -> bool:
     base_url = settings.OLLAMA_BASE_URL.rstrip("/")
+    verify = settings.ollama_http_verify
 
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0), verify=verify) as client:
             response = await client.get(f"{base_url}/api/tags")
             response.raise_for_status()
         return True

@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     # LLM / OLLAMA
     # =========================
     OLLAMA_BASE_URL: str = "https://ollama.local"
+    OLLAMA_CA_CERT: str | None = None
     OLLAMA_MODEL_NAME: str = "qwen2.5:1.5b"
     OLLAMA_EMBED_MODEL: str = "nomic-embed-text-v2-moe"
     OLLAMA_TIMEOUT_SECONDS: float = 120.0
@@ -79,6 +80,19 @@ class Settings(BaseSettings):
     @property
     def rag_source_path(self) -> Path:
         return Path(self.RAG_SOURCE_DIR).resolve()
+
+    @property
+    def ollama_ca_cert_path(self) -> Path | None:
+        if not self.OLLAMA_CA_CERT:
+            return None
+        return Path(self.OLLAMA_CA_CERT).resolve()
+
+    @property
+    def ollama_http_verify(self) -> bool | str:
+        cert_path = self.ollama_ca_cert_path
+        if cert_path is None:
+            return True
+        return str(cert_path)
 
     class Config:
         env_file = ".env"

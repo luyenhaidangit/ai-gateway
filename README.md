@@ -76,6 +76,7 @@ Cac bien quan trong:
 - `ORACLE_WALLET_DIR`: thu muc wallet neu dung Oracle Wallet
 - `ORACLE_WALLET_PASSWORD`: mat khau wallet neu co
 - `OLLAMA_BASE_URL`: URL Ollama, hien dang dung `https://ollama.local`
+- `OLLAMA_CA_CERT`: duong dan toi file CA certificate/root certificate de trust TLS cua Ollama neu dung self-signed cert
 - `OLLAMA_MODEL_NAME`: chat model, mac dinh `qwen2.5:1.5b`
 - `OLLAMA_EMBED_MODEL`: embedding model, mac dinh `nomic-embed-text-v2-moe`
 - `QDRANT_URL`: URL Qdrant
@@ -107,6 +108,7 @@ Dam bao Ollama dang chay, da pull du 2 model, va `.env` co:
 
 ```env
 OLLAMA_BASE_URL=https://ollama.local
+OLLAMA_CA_CERT=./certs/ollama-ca.pem
 OLLAMA_MODEL_NAME=qwen2.5:1.5b
 OLLAMA_EMBED_MODEL=nomic-embed-text-v2-moe
 QDRANT_URL=http://localhost:6333

@@ -28,9 +28,10 @@ class LlmService:
 
         base_url = self.settings.OLLAMA_BASE_URL.rstrip("/")
         timeout = httpx.Timeout(self.settings.OLLAMA_TIMEOUT_SECONDS)
+        verify = self.settings.ollama_http_verify
 
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
+            async with httpx.AsyncClient(timeout=timeout, verify=verify) as client:
                 response = await client.post(f"{base_url}/api/chat", json=payload)
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
@@ -60,9 +61,10 @@ class LlmService:
     async def is_healthy(self) -> bool:
         base_url = self.settings.OLLAMA_BASE_URL.rstrip("/")
         timeout = httpx.Timeout(10.0)
+        verify = self.settings.ollama_http_verify
 
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
+            async with httpx.AsyncClient(timeout=timeout, verify=verify) as client:
                 response = await client.get(f"{base_url}/api/tags")
                 response.raise_for_status()
             return True
