@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     # =========================
     # LLM / OLLAMA
     # =========================
-    OLLAMA_BASE_URL: str = "http://ollama:11434"
+    OLLAMA_BASE_URL: str = "https://ollama.local"
     OLLAMA_MODEL_NAME: str = "qwen2.5:1.5b"
     OLLAMA_EMBED_MODEL: str = "nomic-embed-text-v2-moe"
     OLLAMA_TIMEOUT_SECONDS: float = 120.0
