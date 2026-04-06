@@ -12,7 +12,7 @@ def build_settings(**overrides) -> Settings:
         "OLLAMA_EMBED_MODEL": "nomic-embed-text-v2-moe",
         "QDRANT_URL": "http://localhost:6333",
         "QDRANT_COLLECTION_NAME": "rag_documents",
-        "QDRANT_VECTOR_SIZE": 768,
+        "QDRANT_VECTOR_SIZE": 1024,
         "QDRANT_DISTANCE": "Cosine",
         "RAG_SOURCE_DIR": "docs/knowledge-base",
         "RAG_CHUNK_SIZE": 20,

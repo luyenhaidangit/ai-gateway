@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     QDRANT_URL: str = "http://qdrant:6333"
     QDRANT_CA_CERT: str | None = None
     QDRANT_COLLECTION_NAME: str = "rag_documents"
-    QDRANT_VECTOR_SIZE: int = 768
+    QDRANT_VECTOR_SIZE: int = 1024
     QDRANT_DISTANCE: str = "Cosine"
     RAG_SOURCE_DIR: str = "docs/knowledge-base"
     RAG_CHUNK_SIZE: int = 1000

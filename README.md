@@ -77,10 +77,10 @@ Cac bien quan trong:
 - `OLLAMA_BASE_URL`: URL Ollama, hien dang dung `https://ollama.local`
 - `OLLAMA_CA_CERT`: duong dan toi file CA certificate/root certificate de trust TLS cua Ollama neu dung self-signed cert
 - `OLLAMA_MODEL_NAME`: chat model, mac dinh `qwen2.5:1.5b`
-- `OLLAMA_EMBED_MODEL`: embedding model, mac dinh `nomic-embed-text-v2-moe`
+- `OLLAMA_EMBED_MODEL`: embedding model, mac dinh `mxbai-embed-large:v1`
 - `QDRANT_URL`: URL Qdrant
 - `QDRANT_COLLECTION_NAME`: ten collection vector store
-- `QDRANT_VECTOR_SIZE`: kich thuoc vector embedding, mac dinh `768`
+- `QDRANT_VECTOR_SIZE`: kich thuoc vector embedding, mac dinh `1024`
 - `QDRANT_DISTANCE`: metric cua Qdrant, mac dinh `Cosine`
 - `RAG_SOURCE_DIR`: thu muc nguon tai lieu, mac dinh `docs/knowledge-base`
 - `ALLOWED_ORIGINS`: danh sach origin CORS
@@ -109,7 +109,7 @@ Dam bao Ollama dang chay, da pull du 2 model, va `.env` co:
 OLLAMA_BASE_URL=https://ollama.local
 OLLAMA_CA_CERT=./certs/ollama-ca.pem
 OLLAMA_MODEL_NAME=qwen2.5:1.5b
-OLLAMA_EMBED_MODEL=nomic-embed-text-v2-moe
+OLLAMA_EMBED_MODEL=mxbai-embed-large:v1
 QDRANT_URL=http://localhost:6333
 ```
 

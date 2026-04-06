@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from uuid import NAMESPACE_URL, uuid5
 
 import httpx
-from qdrant_client import AsyncQdrantClient
 from qdrant_client.http import models as qdrant_models
 
 from app.core.config import Settings
+from app.core.logging import get_logger
 from app.core.exceptions import BadRequestError
 from app.core.exceptions import ConfigurationError
 from app.core.exceptions import NotFoundError
@@ -19,6 +19,7 @@ from app.schemas.rag_schema import RagSourceChunk
 
 
 SUPPORTED_DOCUMENT_SUFFIXES = {".md", ".txt"}
+logger = get_logger(__name__)
 
 
 @dataclass(slots=True)
@@ -42,15 +43,11 @@ class RagService:
     def __init__(self, settings: Settings):
         self.settings = settings
         self.base_url = self.settings.OLLAMA_BASE_URL.rstrip("/")
+        self.qdrant_base_url = self.settings.QDRANT_URL.rstrip("/")
         self.timeout = httpx.Timeout(self.settings.OLLAMA_TIMEOUT_SECONDS)
         self.verify = self.settings.ollama_http_verify
-        self.qdrant_client = AsyncQdrantClient(
-            url=self.settings.QDRANT_URL,
-            https=self.settings.qdrant_uses_https,
-            verify=self.settings.qdrant_http_verify,
-            check_compatibility=False,
-            timeout=30.0,
-        )
+        self.qdrant_timeout = httpx.Timeout(30.0)
+        self.qdrant_verify = self.settings.qdrant_http_verify
 
     async def index_documents(self, recreate_collection: bool = False) -> RagIndexResponse:
         self._validate_configuration()
@@ -82,11 +79,7 @@ class RagService:
         ]
 
         try:
-            await self.qdrant_client.upsert(
-                collection_name=self.settings.QDRANT_COLLECTION_NAME,
-                points=points,
-                wait=True,
-            )
+            await self._upsert_points(points)
         except Exception as exc:
             raise ServiceUnavailableError("Qdrant") from exc
 
@@ -104,12 +97,7 @@ class RagService:
         query_vector = (await self._embed_texts([request.question]))[0]
 
         try:
-            hits = await self.qdrant_client.search(
-                collection_name=self.settings.QDRANT_COLLECTION_NAME,
-                query_vector=query_vector,
-                limit=request.top_k,
-                with_payload=True,
-            )
+            hits = await self._search_points(query_vector=query_vector, limit=request.top_k)
         except Exception as exc:
             raise ServiceUnavailableError("Qdrant") from exc
 
@@ -118,12 +106,12 @@ class RagService:
 
         sources = [
             RagSourceChunk(
-                doc_id=str(hit.payload.get("doc_id", "")),
-                source=str(hit.payload.get("source", "")),
-                title=str(hit.payload.get("title", "")),
-                chunk_index=int(hit.payload.get("chunk_index", 0)),
-                text=str(hit.payload.get("text", "")),
-                score=float(hit.score) if hit.score is not None else None,
+                doc_id=str(hit.get("payload", {}).get("doc_id", "")),
+                source=str(hit.get("payload", {}).get("source", "")),
+                title=str(hit.get("payload", {}).get("title", "")),
+                chunk_index=int(hit.get("payload", {}).get("chunk_index", 0)),
+                text=str(hit.get("payload", {}).get("text", "")),
+                score=float(hit["score"]) if hit.get("score") is not None else None,
             )
             for hit in hits
         ]
@@ -215,45 +203,30 @@ class RagService:
 
     async def _ensure_collection(self, recreate_collection: bool) -> None:
         try:
-            collection_exists = await self.qdrant_client.collection_exists(
-                collection_name=self.settings.QDRANT_COLLECTION_NAME
-            )
+            collection_exists = await self._collection_exists()
 
             if collection_exists and recreate_collection:
-                await self.qdrant_client.delete_collection(
-                    collection_name=self.settings.QDRANT_COLLECTION_NAME
-                )
+                await self._delete_collection()
                 collection_exists = False
 
             if not collection_exists:
-                await self.qdrant_client.create_collection(
-                    collection_name=self.settings.QDRANT_COLLECTION_NAME,
-                    vectors_config=qdrant_models.VectorParams(
-                        size=self.settings.QDRANT_VECTOR_SIZE,
-                        distance=self._distance_value(self.settings.QDRANT_DISTANCE),
-                    ),
-                )
+                await self._create_collection()
         except Exception as exc:
             raise ServiceUnavailableError("Qdrant") from exc
 
     async def _ensure_collection_has_points(self) -> None:
         try:
-            collection_exists = await self.qdrant_client.collection_exists(
-                collection_name=self.settings.QDRANT_COLLECTION_NAME
-            )
+            collection_exists = await self._collection_exists()
             if not collection_exists:
                 raise NotFoundError("RAG collection", self.settings.QDRANT_COLLECTION_NAME)
 
-            count_result = await self.qdrant_client.count(
-                collection_name=self.settings.QDRANT_COLLECTION_NAME,
-                exact=True,
-            )
+            count_result = await self._count_points()
         except NotFoundError:
             raise
         except Exception as exc:
             raise ServiceUnavailableError("Qdrant") from exc
 
-        if count_result.count == 0:
+        if count_result == 0:
             raise NotFoundError("Indexed RAG documents")
 
     async def _embed_texts(self, texts: list[str]) -> list[list[float]]:
@@ -355,6 +328,116 @@ class RagService:
             raise ConfigurationError(
                 f"Unsupported QDRANT_DISTANCE '{configured_distance}'."
             ) from exc
+
+    async def _collection_exists(self) -> bool:
+        response = await self._qdrant_request(
+            "GET",
+            f"/collections/{self.settings.QDRANT_COLLECTION_NAME}/exists",
+        )
+        result = response.json().get("result", {})
+        return bool(result.get("exists", False))
+
+    async def _delete_collection(self) -> None:
+        await self._qdrant_request(
+            "DELETE",
+            f"/collections/{self.settings.QDRANT_COLLECTION_NAME}",
+        )
+
+    async def _create_collection(self) -> None:
+        await self._qdrant_request(
+            "PUT",
+            f"/collections/{self.settings.QDRANT_COLLECTION_NAME}",
+            json={
+                "vectors": {
+                    "size": self.settings.QDRANT_VECTOR_SIZE,
+                    "distance": self.settings.QDRANT_DISTANCE,
+                }
+            },
+        )
+
+    async def _count_points(self) -> int:
+        response = await self._qdrant_request(
+            "POST",
+            f"/collections/{self.settings.QDRANT_COLLECTION_NAME}/points/count",
+            json={"exact": True},
+        )
+        result = response.json().get("result", {})
+        return int(result.get("count", 0))
+
+    async def _upsert_points(self, points: list[qdrant_models.PointStruct]) -> None:
+        await self._qdrant_request(
+            "PUT",
+            f"/collections/{self.settings.QDRANT_COLLECTION_NAME}/points",
+            params={"wait": "true"},
+            json={
+                "points": [
+                    {
+                        "id": point.id,
+                        "vector": point.vector,
+                        "payload": point.payload,
+                    }
+                    for point in points
+                ]
+            },
+        )
+
+    async def _search_points(self, *, query_vector: list[float], limit: int) -> list[dict]:
+        response = await self._qdrant_request(
+            "POST",
+            f"/collections/{self.settings.QDRANT_COLLECTION_NAME}/points/search",
+            json={
+                "vector": query_vector,
+                "limit": limit,
+                "with_payload": True,
+            },
+        )
+        result = response.json().get("result", [])
+        return result if isinstance(result, list) else []
+
+    async def _qdrant_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict | None = None,
+        json: dict | None = None,
+    ) -> httpx.Response:
+        url = f"{self.qdrant_base_url}{path}"
+
+        try:
+            async with httpx.AsyncClient(
+                timeout=self.qdrant_timeout,
+                verify=self.qdrant_verify,
+            ) as client:
+                response = await client.request(
+                    method,
+                    url,
+                    params=params,
+                    json=json,
+                )
+                response.raise_for_status()
+                return response
+        except httpx.HTTPStatusError as exc:
+            body = exc.response.text
+            if len(body) > 500:
+                body = body[:500]
+            logger.warning(
+                "Qdrant request failed with HTTP status",
+                method=method,
+                url=url,
+                status_code=exc.response.status_code,
+                response_body=body,
+            )
+            raise
+        except httpx.HTTPError as exc:
+            logger.warning(
+                "Qdrant request failed with transport error",
+                method=method,
+                url=url,
+                error_type=type(exc).__name__,
+                error=str(exc),
+            )
+            raise
 
     def _build_context_prompt(self, question: str, sources: list[RagSourceChunk]) -> str:
         formatted_context = "\n\n".join(
