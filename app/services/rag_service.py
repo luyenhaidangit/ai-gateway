@@ -44,7 +44,13 @@ class RagService:
         self.base_url = self.settings.OLLAMA_BASE_URL.rstrip("/")
         self.timeout = httpx.Timeout(self.settings.OLLAMA_TIMEOUT_SECONDS)
         self.verify = self.settings.ollama_http_verify
-        self.qdrant_client = AsyncQdrantClient(url=self.settings.QDRANT_URL, timeout=30.0)
+        self.qdrant_client = AsyncQdrantClient(
+            url=self.settings.QDRANT_URL,
+            https=self.settings.qdrant_uses_https,
+            verify=self.settings.qdrant_http_verify,
+            check_compatibility=False,
+            timeout=30.0,
+        )
 
     async def index_documents(self, recreate_collection: bool = False) -> RagIndexResponse:
         self._validate_configuration()
